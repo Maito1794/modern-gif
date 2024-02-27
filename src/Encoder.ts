@@ -44,7 +44,7 @@ export class Encoder {
         typeof options[key] !== 'undefined'
         && Math.floor(options[key]!) !== options[key]
       ) {
-        console.warn(`${ key } cannot be a floating point number`)
+        console.warn(`${key} cannot be a floating point number`)
         options[key] = Math.floor(options[key]!)
       }
     })
@@ -89,7 +89,7 @@ export class Encoder {
     let { data } = frame
 
     try {
-      this._logger.time(`palette:sample-${ id }`)
+      this._logger.time(`palette:sample-${id}`)
       data = typeof data === 'string'
         ? await loadImage(data)
         : data
@@ -108,7 +108,7 @@ export class Encoder {
 
       this._palette.addSample(data)
     } finally {
-      this._logger.timeEnd(`palette:sample-${ id }`)
+      this._logger.timeEnd(`palette:sample-${id}`)
     }
   }
 
@@ -132,25 +132,31 @@ export class Encoder {
     // eslint-disable-next-line no-console
     this._logger.isDebug && console.debug(
       colors.map(() => '%c ').join(''),
-      ...colors.map(color => `margin: 1px; background: ${ color.hex }`),
+      ...colors.map(color => `margin: 1px; background: ${color.hex}`),
     )
 
     this._logger.time('encode')
     const output = await new Promise<Uint8Array>(resolve => {
-      new ReadableStream({
+      const pipeline = new ReadableStream({
         start: controller => {
           this._encodingFrames.forEach(frame => {
             controller.enqueue(frame)
           })
           controller.close()
         },
-      })
+      });
+      let finalPipeline = pipeline
         .pipeThrough(new FrameToIndexedFrame(this._config, colors))
-        .pipeThrough(new CropIndexedFrame(this._config))
+      //conditional check for trimming frames
+      if (this._encodingFrames.every(frame => frame.trim !== false && frame.trim !== null && frame.trim !== undefined)) {
+        finalPipeline = finalPipeline.pipeThrough(new CropIndexedFrame(this._config));
+      }
+      finalPipeline
         .pipeThrough(new EncodeIndexdFrame(this._config))
         .pipeThrough(new EncodeGif({ ...this._config, colorTable }))
-        .pipeTo(new WritableStream({ write: chunk => resolve(chunk) }))
-    })
+        .pipeTo(new WritableStream({ write: chunk => resolve(chunk) }));
+    });
+
     this._logger.timeEnd('encode')
 
     // reset
