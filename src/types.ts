@@ -66,6 +66,9 @@ export interface Frame {
   index: number
   delay: number // unit: 1ms
   disposal: GraphicControl['disposal']
+
+  //Trim transparent pixels
+  trim?: boolean
 }
 
 export type EncodingFrame = Partial<Frame> & { data: Uint8ClampedArray; transparent?: boolean }
